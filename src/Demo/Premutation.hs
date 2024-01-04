@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs            #-}
+{-@ LIQUID "--diff"           @-}
 {-@ LIQUID "--exact-data-con" @-}
 {-@ LIQUID "--higherorder"    @-}
 {-@ LIQUID "--ple"            @-}
