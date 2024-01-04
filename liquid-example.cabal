@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Demo.F91,
     Demo.List,
     Demo.Premutation
   -- other-modules:
