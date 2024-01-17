@@ -19,7 +19,8 @@ library
   exposed-modules:
     Demo.F91,
     Demo.List,
-    Demo.Premutation
+    Demo.Premutation,
+    Demo.ItvSet
   -- other-modules:
   -- other-extensions:
   build-depends:       

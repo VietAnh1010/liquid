@@ -8,105 +8,80 @@ import Prelude hiding (break)
 
 -- data List a = Nil | Cons { head :: a, tail :: List a }
 
-{-
-{-@ mkList :: Int -> k:Int -> List {v:Int | k < v} @-} is rejected
-Liquid Type Mismatch
-    .
-    The inferred type
-      VV : GHC.Types.Int
-    .
-    is not a subtype of the required type
-      VV : {VV##932 : GHC.Types.Int | k##a10dl < VV##932}
-    .
-    in the context
-      k##a10dl : GHC.Types.Int
-    Constraint id 11
--}
-
--- {-@ mkList :: Int -> k:Int -> List {v:Int | k <= v} @-}
--- mkList :: Int -> Int -> List Int
--- mkList n k =
---   if 0 < n
---     then Cons k $ mkList (n - 1) (k + 1)
---     else Nil
-
 -- Haskell Type Definitions
 plusOnes     :: [(Int, Int)]
-insertSort   :: (Ord a) => [a] -> [a]
 mergeSort    :: (Ord a) => [a] -> [a]
 quickSort    :: (Ord a) => [a] -> [a]
 digits       :: Assoc String
 sparseVec    :: Assoc Double
 digsVec      :: Vec Int
-whatGosUp    :: [Integer]
-mustGoDown   :: [Integer]
-noDuplicates :: [Integer]
 
--- Polymorphic Association Lists
-data AssocP k v = KVP [(k, v)]
+-----------------------------------
+-- Polymorphic Association Lists --
+-----------------------------------
 
-{-@ digitsP :: AssocP {v:Int | (Btwn 0 v 9)} String @-}
+{-@ inline btwn @-}
+btwn lo v hi = lo <= v && v <= hi
+
+type AssocP k v = [(k, v)]
+-- k and v are polymorphic, therefore k and v can be refined with predicates
+
+{-@ digitsP :: AssocP {v:Int | btwn 0 v 9} String @-}
 digitsP :: AssocP Int String
-digitsP = KVP [ (1, "one")
-              , (2, "two")
-              , (3, "three") ]
+digitsP = [ (1, "one")
+          , (2, "two")
+          , (3, "three") ]
 
-{-@ sparseVecP :: AssocP {v:Int | (Btwn 0 v 1000)} Double @-}
+{-@ sparseVecP :: AssocP {v:Int | btwn 0 v 1000} Double @-}
 sparseVecP :: AssocP Int Double
-sparseVecP = KVP [ (12 ,  34.1 )
-                 , (92 , 902.83)
-                 , (451,   2.95)
-                 , (877,   3.1 )]
+sparseVecP = [ (12 ,  34.1 )
+             , (92 , 902.83)
+             , (451,   2.95)
+             , (877,   3.1 ) ]
 
-
-{-@ predicate Btwn Lo V Hi = (Lo <= V && V <= Hi) @-}
-
--- Monomorphic Association Lists
--- -----------------------------
+-----------------------------------
+-- Monomorphic Association Lists --
+-----------------------------------
 
 {-@ data Assoc v <p :: Int -> Bool> = KV { keyVals :: [(Int<p>, v)] } @-}
 data Assoc v = KV [(Int, v)]
+-- `newtype` does not work in liquid annotation, with abstract refinement
+-- `type` does not work either
 
-{-@ digits :: Assoc (String) <{\v -> (Btwn 0 v 9)}> @-}
+{-@ digits :: Assoc (String) <{\v -> btwn 0 v 9}> @-}
 digits    = KV [ (1, "one")
                , (2, "two")
                , (3, "three") ]
 
 
-{-@ sparseVec :: Assoc Double <{\v -> (Btwn 0 v 1000)}> @-}
+{-@ sparseVec :: Assoc Double <{\v -> btwn 0 v 1000}> @-}
 sparseVec = KV [ (12 ,  34.1 )
                , (92 , 902.83)
                , (451,   2.95)
-               , (877,   3.1 )]
+               , (877,   3.1 ) ]
 
-
-
--- Dependent Tuples
--- ----------------
+----------------------
+-- Dependent Tuples --
+----------------------
 
 -- `break` from the Prelude.
+{-@ break :: (a -> Bool) -> x:[a] -> ([a], [a])<\y -> {z:[a] | len x = len y + len z}> @-}
 break                   :: (a -> Bool) -> [a] -> ([a], [a])
-break _ xs@[]           =  (xs, xs)
+break _ []              =  ([], [])
 break p xs@(x:xs')
-           | p x        =  ([], xs)
-           | otherwise  =  let (ys, zs) = break p xs'
-                           in (x:ys,zs)
+  | p x        = ([], xs)
+  | otherwise  = let (ys, zs) = break p xs' in (x:ys, zs)
 
 -- Dependent Tuples via Abstract Refinements
--- data (a,b)<p :: a -> b -> Prop> = (x:a, b<p x>)
+-- data (a, b)<p :: a -> b -> Prop> = (x:a, b<p x>)
 -- Instantiate the `p` in *different* ways.
 
 {-@ plusOnes :: [(Int, Int)<{\x1 x2 -> x2 = x1 + 1}>] @-}
-plusOnes = [(0,1), (5,6), (999,1000)]
+plusOnes = [(0, 1), (5, 6), (999, 1000)]
 
-{-@ break :: (a -> Bool) -> x:[a]
-          -> ([a], [a])<\y -> {z:[a] |  (Break x y z)}> @-}
-
-{-@ predicate Break X Y Z   = (len X) = (len Y) + (len Z) @-}
-
----------------------------------------------------------------
--- Abstractly Refined Lists
----------------------------------------------------------------
+------------------------------
+-- Abstractly Refined Lists --
+------------------------------
 
 -- data [a] <p :: a -> a -> Prop> 
 --   = []  
@@ -125,10 +100,9 @@ plusOnes = [(0,1), (5,6), (999,1000)]
 --   (recursively) are pairwise related `[...]<p>` and returns a list where
 --   *all* elements are pairwise related `[a]<p>`.
 
-
----------------------------------------------------------------
--- Using Abstractly Refined Lists
----------------------------------------------------------------
+------------------------------------
+-- Using Abstractly Refined Lists --
+------------------------------------
 
 -- For starters, we can define a few helpful type aliases.
 
@@ -138,43 +112,55 @@ plusOnes = [(0,1), (5,6), (999,1000)]
 
 
 {-@ whatGosUp :: IncrList Integer @-}
+whatGosUp :: [Integer]
 whatGosUp = [1,2,3]
 
-
 {-@ mustGoDown :: DecrList Integer @-}
+mustGoDown :: [Integer]
 mustGoDown = [3,2,1]
 
-
 {-@ noDuplicates :: UniqList Integer @-}
+noDuplicates :: [Integer]
 noDuplicates = [1,3,2]
 
+--------------------
+-- Insertion Sort --
+--------------------
 
----------------------------------------------------------------
--- Insertion Sort ---------------------------------------------
----------------------------------------------------------------
-
-{-@ insertSort    :: (Ord a) => xs:[a] -> (IncrList a) @-}
+{-@ insertSort :: Ord a => [a] -> IncrList a @-}
+insertSort :: Ord a => [a] -> [a]
 insertSort []     = []
 insertSort (x:xs) = insert x (insertSort xs)
 
-{-@ insert :: (Ord a) => a -> IncrList a -> IncrList a @-}
+-- without this annotation, LH reports the following error:
+-- Liquid Type Mismatch
+--     .
+--     The inferred type
+--       VV : a
+--     .
+--     is not a subtype of the required type
+--       VV : {VV : a | ?a <= VV}
+--     .
+--     in the context
+--       ?a : a
+--     Constraint id 1
+--
+{-@ insert :: Ord a => a -> IncrList a -> IncrList a @-}
+insert :: Ord a => a -> [a] -> [a]
 insert y []     = [y]
 insert y (x:xs)
   | y <= x      = y : x : xs
   | otherwise   = x : insert y xs
 
-
 -- If you prefer the more Haskelly way of writing insertion sort,
 -- i.e. with a `foldr`, that works too. Can you figure out why?
-
-{-@ insertSort' :: (Ord a) => [a] -> IncrList a @-}
+{-@ insertSort' :: Ord a => [a] -> IncrList a @-}
 insertSort' :: Ord a => [a] -> [a]
-insertSort' xs  = foldr insert [] xs
+insertSort' = foldr insert []
 
-
----------------------------------------------------------------
--- Merge Sort -------------------------------------------------
----------------------------------------------------------------
+----------------
+-- Merge Sort --
+----------------
 
 split          :: [a] -> ([a], [a])
 split (x:y:zs) = (x:xs, y:ys)
@@ -183,7 +169,7 @@ split (x:y:zs) = (x:xs, y:ys)
 split xs       = (xs, [])
 
 
-{-@ merge :: (Ord a) => IncrList a -> IncrList a -> IncrList a @-}
+-- {-@ merge :: (Ord a) => IncrList a -> IncrList a -> IncrList a @-}
 merge xs []         = xs
 merge [] ys         = ys
 merge (x:xs) (y:ys)
@@ -197,10 +183,9 @@ mergeSort xs  = merge (mergeSort ys) (mergeSort zs)
   where
     (ys, zs)  = split xs
 
----------------------------------------------------------------
--- Quick Sort -------------------------------------------------
----------------------------------------------------------------
-
+----------------
+-- Quick Sort --
+----------------
 
 {-@ quickSort    :: (Ord a) => [a] -> IncrList a @-}
 quickSort []     = []
@@ -209,15 +194,14 @@ quickSort (x:xs) = pivApp x lts gts
     fs           = [y | y <- xs, y < x ]
     ss           = [z | z <- xs, z >= x]
     -- even with this annotation, LH still cannot infer the corect type for pivApp
-    {-@ lts :: IncrList {v:a | v < x} @-}
-    {-@ gts :: IncrList {v:a | v >= x} @-}
+    -- {-@ lts :: IncrList {v:a | v < x} @-}
+    -- {-@ gts :: IncrList {v:a | v >= x} @-}
     lts          = quickSort fs
     gts          = quickSort ss
-
--- {-@ pivApp :: piv:a -> IncrList {v:a | v <  piv} -> IncrList {v:a | v >= piv} -> IncrList a @-}
+    
+{-@ pivApp :: piv:a -> IncrList {v:a | v <  piv} -> IncrList {v:a | v >= piv} -> IncrList a @-}
 pivApp piv []     ys  = piv : ys
 pivApp piv (x:xs) ys  = x   : pivApp piv xs ys
-
 
 -- Really Sorting Lists
 -- --------------------
